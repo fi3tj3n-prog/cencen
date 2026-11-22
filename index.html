@@ -42,7 +42,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:18p
 .bar i{display:block;height:100%;border-radius:9px;background:linear-gradient(90deg,#fff,#f3d6ff);transition:width .6s}
 .hint{color:#fff;opacity:.85;font-size:14px}
 .acts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0 28px}
-.act{display:flex;align-items:center;gap:12px;min-height:64px;padding:0 18px;border-radius:22px;color:#2a1630;font-weight:600;font-size:17px}
+.act{display:flex;align-items:center;gap:10px;min-height:64px;padding:0 14px;border-radius:22px;color:#2a1630;font-weight:600;font-size:clamp(15px,4.2vw,17px);white-space:nowrap}
 .act svg{width:24px;height:24px;flex:none}
 .a1{background:linear-gradient(135deg,#ffd6e4,#f8a9c6)}.a2{background:linear-gradient(135deg,#efe6ff,#cdb6fb)}
 .a3{background:linear-gradient(135deg,#ffe8cc,#ffc58e)}.a4{background:linear-gradient(135deg,#dcfbeb,#a5ead0)}
@@ -105,13 +105,32 @@ textarea{min-height:120px;font:14px/1.4 ui-monospace,monospace}
 .title{font:30px/1.1 "DM Serif Display",serif;margin:6px 0 16px}
 .sum3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
 .sum3 div{background:var(--card);border-radius:16px;padding:12px}.sum3 small{color:var(--mute);display:block;font-size:13px}.sum3 b{font-size:15px;white-space:nowrap}
+.lock{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(circle at 30% 10%,#5a2560 0,#1a0f1f 60%)}
+body.unlocked .lock{display:none}body:not(.unlocked) .app,body:not(.unlocked) nav{visibility:hidden}
+.lockbox{width:100%;max-width:360px;text-align:center}
+.lockbox .logo{width:84px;height:84px;margin:0 auto 14px;border-radius:24px;box-shadow:0 14px 30px -10px #c86bd8}
+.lockbox h1{font:38px/1.05 "DM Serif Display",serif;margin:0 0 6px}
+.lockbox p{color:var(--mute);margin:0 0 18px}
+.lockbox input{text-align:center;font-size:18px;margin-bottom:10px}
+.err{color:var(--red);min-height:22px;font-size:14px}
+.hbtn{width:44px;height:44px;border-radius:50%;background:var(--card);display:grid;place-items:center}
 </style>
 </head>
 <body>
+<div class="lock" id="lock"><form class="lockbox" id="lockForm">
+  <img class="logo" src="icon.svg" alt="">
+  <h1>Cencen</h1>
+  <p id="lockMsg">Masukkan password</p>
+  <input id="pw1" type="password" autocomplete="current-password" placeholder="Password" aria-label="Password" required>
+  <input id="pw2" type="password" autocomplete="new-password" placeholder="Ulangi password" aria-label="Ulangi password" style="display:none">
+  <div class="err" id="lockErr"></div>
+  <button class="btn" id="lockBtn">Buka</button>
+  <button type="button" class="btn ghost" id="forgot">Lupa password?</button>
+</form></div>
 <div class="app">
   <header>
     <div class="brand">Cen<span>cen</span></div>
-    <div class="avatar" id="av">CC</div>
+    <button class="hbtn" id="lockNow" aria-label="Kunci aplikasi"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></button>
   </header>
 
   <!-- BERANDA -->
@@ -224,6 +243,7 @@ textarea{min-height:120px;font:14px/1.4 ui-monospace,monospace}
   <h3>Saldo awal</h3>
   <div id="saldoFields"></div>
   <button class="btn">Simpan</button><button type="button" class="btn ghost" data-close>Batal</button>
+  <button type="button" class="btn ghost" id="chpw">Ganti password</button>
   <button type="button" class="btn ghost" id="reset" style="color:var(--red)">Hapus semua data</button>
 </form></div>
 
@@ -367,6 +387,34 @@ $('#saldoForm').addEventListener('submit',e=>{e.preventDefault();WAL.forEach(w=>
 $('#q').addEventListener('input',()=>renderHist());
 function go(v){$$('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));$$('nav [data-go]').forEach(b=>b.classList.toggle('on',b.dataset.go===v));scrollTo(0,0);if(v==='hist')renderHist()}
 render();
+/* ---- kunci password ---- */
+const PK='cencen-pass';
+const getP=()=>{try{return JSON.parse(localStorage.getItem(PK))}catch(e){return null}};
+const setP=v=>{try{v?localStorage.setItem(PK,JSON.stringify(v)):localStorage.removeItem(PK)}catch(e){}};
+async function hash(pw,salt){
+  const data=new TextEncoder().encode(salt+':'+pw);
+  if(crypto.subtle){let b=data;for(let i=0;i<2000;i++)b=new Uint8Array(await crypto.subtle.digest('SHA-256',b));return [...b].map(x=>x.toString(16).padStart(2,'0')).join('')}
+  let h1=0x811c9dc5,h2=0x1234567;for(let r=0;r<2000;r++)for(const c of data){h1=Math.imul(h1^c,16777619);h2=Math.imul(h2^c^r,2246822519)}return 'f'+(h1>>>0).toString(16)+(h2>>>0).toString(16)}
+let mode='enter',failed=0;
+function showLock(m){mode=m||(getP()?'enter':'new');document.body.classList.remove('unlocked');closeAll();
+  $('#pw1').value='';$('#pw2').value='';$('#lockErr').textContent='';
+  const isNew=mode==='new';$('#pw2').style.display=isNew?'block':'none';$('#pw2').required=isNew;
+  $('#lockMsg').textContent=isNew?(getP()?'Buat password baru':'Buat password untuk melindungi catatan keuanganmu'):'Masukkan password';
+  $('#lockBtn').textContent=isNew?'Simpan password':'Buka';$('#forgot').style.display=isNew?'none':'block';
+  $('#pw1').autocomplete=isNew?'new-password':'current-password';setTimeout(()=>$('#pw1').focus(),50)}
+$('#lockForm').addEventListener('submit',async e=>{e.preventDefault();const a=$('#pw1').value,err=$('#lockErr');
+  if(mode==='new'){if(a.length<4){err.textContent='Minimal 4 karakter';return}if(a!==$('#pw2').value){err.textContent='Password tidak sama';return}
+    const salt=Math.random().toString(36).slice(2)+Date.now().toString(36);setP({salt,h:await hash(a,salt)});document.body.classList.add('unlocked');toast('Password disimpan');return}
+  const p=getP();if(p&&await hash(a,p.salt)===p.h){failed=0;document.body.classList.add('unlocked');$('#pw1').value=''}
+  else{failed++;err.textContent='Password salah'+(failed>=3?'. Coba pelan-pelan ya.':'');$('#pw1').select()}});
+$('#forgot').addEventListener('click',e=>{const b=e.currentTarget;
+  if(!b.dataset.sure){b.dataset.sure=1;b.textContent='Ketuk lagi: hapus semua data & buat password baru';$('#lockErr').textContent='Password tidak bisa dipulihkan. Reset akan menghapus semua catatan.';return}
+  delete b.dataset.sure;b.textContent='Lupa password?';try{localStorage.removeItem(KEY)}catch(x){}setP(null);
+  S={tx:[],open:{cash:0,mandiri:0,jatim:0,ew:0},budget:S.budget,hide:false};save();render();showLock('new')});
+$('#lockNow').addEventListener('click',()=>showLock());
+$('#chpw').addEventListener('click',()=>showLock('new'));
+let hiddenAt=0;document.addEventListener('visibilitychange',()=>{if(document.hidden)hiddenAt=Date.now();else if(hiddenAt&&Date.now()-hiddenAt>60000&&getP())showLock()});
+showLock();
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 </script>
