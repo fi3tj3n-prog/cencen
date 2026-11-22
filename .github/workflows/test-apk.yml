@@ -1,0 +1,35 @@
+name: Uji pasang APK
+on:
+  workflow_run:
+    workflows: ["Build APK"]
+    types: [completed]
+  workflow_dispatch:
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [29, 33]
+    steps:
+      - name: Aktifkan KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Unduh APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download terbaru -R ${{ github.repository }} -p cencen.apk
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          target: google_apis
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            adb install -r cencen.apk 2>&1 | tee hasil.txt
+            adb shell pm list packages | grep cencen || true
+            adb shell am start -W -n id.cencen.app/.MainActivity || true
+            sleep 5
+            adb logcat -d | grep -iE "cencen|AndroidRuntime|FATAL" | tail -40 || true
