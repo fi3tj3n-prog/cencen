@@ -5,7 +5,11 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
+import android.widget.Toast;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -14,7 +18,23 @@ import android.webkit.WebViewClient;
 public class MainActivity extends Activity {
     private WebView web;
     private ValueCallback<Uri[]> fileCb;
-    private static final int PICK = 7;
+    private static final int PICK = 7, SAVE = 8;
+    private String pendingText;
+
+    public class Bridge {
+        @JavascriptInterface
+        public void saveFile(String name, String text) {
+            runOnUiThread(() -> {
+                pendingText = text;
+                Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                i.addCategory(Intent.CATEGORY_OPENABLE);
+                i.setType("application/json");
+                i.putExtra(Intent.EXTRA_TITLE, name);
+                try { startActivityForResult(i, SAVE); }
+                catch (Exception e) { Toast.makeText(MainActivity.this, "Tidak bisa membuka penyimpanan", Toast.LENGTH_LONG).show(); }
+            });
+        }
+    }
 
     @Override
     protected void onCreate(Bundle saved) {
@@ -27,6 +47,7 @@ public class MainActivity extends Activity {
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setAllowFileAccess(true);
+        web.addJavascriptInterface(new Bridge(), "CencenAndroid");
         web.setWebViewClient(new WebViewClient());
         web.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -48,6 +69,16 @@ public class MainActivity extends Activity {
         if (req == PICK && fileCb != null) {
             fileCb.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(res, data));
             fileCb = null;
+        } else if (req == SAVE) {
+            if (res == RESULT_OK && data != null && data.getData() != null && pendingText != null) {
+                try (OutputStream os = getContentResolver().openOutputStream(data.getData())) {
+                    os.write(pendingText.getBytes(StandardCharsets.UTF_8));
+                    Toast.makeText(this, "Cadangan tersimpan", Toast.LENGTH_SHORT).show();
+                } catch (Exception e) {
+                    Toast.makeText(this, "Gagal menyimpan cadangan", Toast.LENGTH_LONG).show();
+                }
+            }
+            pendingText = null;
         } else super.onActivityResult(req, res, data);
     }
 

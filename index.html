@@ -151,7 +151,7 @@ body.unlocked .lock{display:none}body:not(.unlocked) .app,body:not(.unlocked) na
 <div class="app">
   <header>
     <div class="brand">Cen<span>cen</span></div>
-    <button class="hbtn" id="lockNow" aria-label="Kunci aplikasi"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></button>
+    <div style="display:flex;gap:8px"><button class="hbtn" data-open="saldo" aria-label="Pengaturan"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button><button class="hbtn" id="lockNow" aria-label="Kunci aplikasi"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></button></div>
   </header>
 
   <!-- BERANDA -->
@@ -320,9 +320,17 @@ body.unlocked .lock{display:none}body:not(.unlocked) .app,body:not(.unlocked) na
 
 <!-- SHEET SALDO AWAL -->
 <div class="sheet" id="s-saldo"><form class="panel" id="saldoForm">
-  <h3>Saldo awal</h3>
+  <h3>Pengaturan</h3>
+  <h2 style="font-size:17px;margin-top:6px">Cadangan data</h2>
+  <p class="note" id="bkInfo"></p>
+  <div class="two"><button type="button" class="btn" style="margin-top:8px" id="bkSave">Cadangkan</button><button type="button" class="btn ghost" style="margin-top:8px" id="bkLoad">Pulihkan</button></div>
+  <input type="file" id="bkFile" accept=".json,application/json,text/plain" style="display:none">
+  <div id="bkCopyBox" style="display:none"><p class="note">Kalau file tidak tersimpan otomatis, salin kode ini lalu simpan di catatan atau kirim ke WhatsApp sendiri.</p><textarea id="bkText" readonly></textarea><button type="button" class="btn ghost" id="bkCopy">Salin kode cadangan</button></div>
+  <div id="bkPasteBox" style="display:none"><p class="note">Atau tempel kode cadangan di sini:</p><textarea id="bkPaste" placeholder='{"app":"cencen",...}'></textarea><button type="button" class="btn ghost" id="bkPasteGo">Pulihkan dari kode</button></div>
+  <div class="err" id="bkErr"></div>
+  <h2 style="font-size:17px;margin-top:22px">Saldo awal dompet</h2>
   <div id="saldoFields"></div>
-  <button class="btn">Simpan</button><button type="button" class="btn ghost" data-close>Batal</button>
+  <button class="btn">Simpan saldo awal</button><button type="button" class="btn ghost" data-close>Tutup</button>
   <button type="button" class="btn ghost" id="chpw">Ganti password</button>
   <button type="button" class="btn danger" id="reset">Hapus semua data</button>
 </form></div>
@@ -420,7 +428,8 @@ function renderAlerts(){
   S.aris.filter(x=>!x.paid[m]).forEach(x=>{const left=x.day-d;if(left<=3)out.push([left<0?'r':'','Iuran '+x.name,left<0?`Telat ${-left} hari`:left===0?'Hari ini':`${left} hari lagi`,x.iuran,'ari'])});
   const mt=monthTx(m);
   Object.entries(S.budget).forEach(([c,lim])=>{if(!lim)return;const u=mt.filter(t=>t.k==='out'&&t.c===c).reduce((s,t)=>s+t.a,0);if(u>=lim*.8)out.push([u>lim?'r':'',c,u>lim?`Anggaran lewat ${fmt(u-lim)}`:`Anggaran tinggal ${fmt(lim-u)}`,u,'plan'])});
-  $('#alerts').innerHTML=out.map(([k,t,s,a,v])=>`<button class="al ${k}" data-go="${v}"><div>${esc(t)}<small>${s}</small></div><b>${money(a)}</b></button>`).join('')||'<div class="al g"><div>Semua aman<small>Tidak ada tagihan, hutang, atau anggaran yang mendesak</small></div></div>';
+  if(S.tx.length>=20&&!S.sample&&(!S.lastBackup||dayDiff(S.lastBackup)<-30))out.push(['','Cadangkan data',S.lastBackup?'Sudah lebih dari 30 hari':'Belum pernah dicadangkan',null,'backup']);
+  $('#alerts').innerHTML=out.map(([k,t,s,a,v])=>`<button class="al ${k}" data-go="${v}"><div>${esc(t)}<small>${s}</small></div><b>${a===null?'›':money(a)}</b></button>`).join('')||'<div class="al g"><div>Semua aman<small>Tidak ada tagihan, hutang, atau anggaran yang mendesak</small></div></div>';
 }
 
 let hf='all';
@@ -603,9 +612,10 @@ document.addEventListener('click',e=>{
   if(d.act){ACT[d.act](d.id);return}
   if(d.tx){photo=null;openTx(d.tx)}
   else if(d.k)setKind(d.k);
-  else if(d.open==='saldo'){$('#saldoFields').innerHTML=WAL.map(w=>`<label for="o-${w.id}">${w.n}</label><input id="o-${w.id}" class="money" inputmode="numeric" value="${(S.open[w.id]||0).toLocaleString('id-ID')}">`).join('');open('saldo')}
+  else if(d.open==='saldo'){$('#saldoFields').innerHTML=WAL.map(w=>`<label for="o-${w.id}">${w.n}</label><input id="o-${w.id}" class="money" inputmode="numeric" value="${(S.open[w.id]||0).toLocaleString('id-ID')}">`).join('');$('#bkCopyBox').style.display='none';$('#bkPasteBox').style.display='none';$('#bkErr').textContent='';bkInfo();open('saldo')}
   else if(d.open)open(d.open);
   else if(t.hasAttribute('data-close'))closeAll();
+  else if(d.go==='backup')$('[data-open=saldo]').click();
   else if(d.go)go(d.go);
   else if(d.wf){hf='w:'+d.wf;go('hist')}
   else if(d.hf){hf=d.hf;renderHist()}
@@ -636,6 +646,26 @@ $('#saldoForm').addEventListener('submit',e=>{e.preventDefault();WAL.forEach(w=>
 $('#q').addEventListener('input',renderHist);
 function go(v){$$('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));$$('nav [data-go]').forEach(b=>b.classList.toggle('on',b.dataset.go===v));scrollTo(0,0)}
 render();
+
+/* ---------- cadangan ---------- */
+const backupText=()=>JSON.stringify({app:'cencen',v:2,date:new Date().toISOString(),data:S});
+function bkInfo(){$('#bkInfo').textContent=S.lastBackup?'Terakhir dicadangkan '+tgl(S.lastBackup.slice(0,10))+'. ':'Belum pernah dicadangkan. ';$('#bkInfo').textContent+='File cadangan berisi semua catatan (tanpa password). Simpan di Google Drive atau kirim ke WhatsApp sendiri supaya aman kalau HP hilang.'}
+$('#bkSave').addEventListener('click',()=>{
+  S.lastBackup=today();save();const txt=backupText(),name='cencen-cadangan-'+today()+'.json';let ok=false;
+  try{if(window.CencenAndroid){CencenAndroid.saveFile(name,txt);ok=true}
+    else{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'application/json'}));a.download=name;document.body.appendChild(a);a.click();a.remove();ok=true}}catch(e){}
+  $('#bkText').value=txt;$('#bkCopyBox').style.display='block';bkInfo();render();toast(ok?'Cadangan dibuat':'Salin kode cadangan di bawah')});
+$('#bkCopy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('#bkText').value);toast('Kode cadangan disalin')}catch(e){$('#bkText').select();toast('Tekan lama lalu Salin')}});
+function restore(txt){const err=$('#bkErr');err.textContent='';
+  let o;try{o=JSON.parse(txt)}catch(e){err.textContent='File atau kode cadangan tidak terbaca.';return}
+  if(!o||o.app!=='cencen'||!o.data||!Array.isArray(o.data.tx)){err.textContent='Ini bukan file cadangan Cencen.';return}
+  pending=o;const n=o.data.tx.length;
+  err.innerHTML=`Cadangan ${tgl(o.date.slice(0,10))} berisi ${n} transaksi. Data sekarang akan <b>diganti</b>. <button type="button" class="sm p" id="bkYes" style="margin-top:8px">Ya, pulihkan</button>`;
+  $('#bkYes').onclick=()=>{S=pending.data;['debts','bills','goals','aris','shop'].forEach(k=>{if(!Array.isArray(S[k]))S[k]=[]});S.budget=S.budget||{};S.open=S.open||{};delete S.sample;save();render();closeAll();$('#bkErr').textContent='';toast('Data berhasil dipulihkan')}}
+let pending=null;
+$('#bkLoad').addEventListener('click',()=>{$('#bkPasteBox').style.display='block';$('#bkFile').value='';$('#bkFile').click()});
+$('#bkFile').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>restore(r.result);r.readAsText(f)});
+$('#bkPasteGo').addEventListener('click',()=>restore($('#bkPaste').value.trim()));
 
 /* ---------- kunci password ---------- */
 const PK='cencen-pass';
